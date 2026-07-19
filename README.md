@@ -16,6 +16,11 @@ tags:
 pretty_name: "IlùBench: Cultural Register Switching in Frontier Language Models"
 size_categories:
   - n<1K
+configs:
+  - config_name: probes
+    data_files: probe_set_v0.jsonl
+  - config_name: runs
+    data_files: runs_v0.jsonl
 ---
 
 # IlùBench v0.1 — Cultural Register Switching in Frontier Language Models
