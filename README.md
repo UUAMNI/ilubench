@@ -30,6 +30,8 @@ configs:
 **Author:** Chuma B. Chukwu Jr. (UUAMNI)
 **Released:** July 2026 · **License:** CC-BY-4.0 · **Contact:** chuma@uuamni.com · [uuamni.com](https://uuamni.com)
 
+**Run it yourself:** [github.com/UUAMNI/ilubench-runner](https://github.com/UUAMNI/ilubench-runner) — a single-file, dependency-free runner that reproduces this protocol against your own API keys (any provider, including local open-weight models) in under five minutes. Contributions of new model runs welcome.
+
 ## The finding
 
 Ask a frontier model to explain an Igbo proverb **in English**, and it answers as an outsider: gloss, literal translation, comparisons to English proverbs. Ask the *same model* the *same question* **in Igbo**, and it answers from inside the culture: it reasons from *other Igbo proverbs*, drops the translation scaffolding, and shifts to the hortatory register the form actually carries. The model holds both modes. **Prompt language gates which one the user can reach** — and the English-speaking user cannot access the inside-the-culture register even when asking about the culture. We call this *cultural register switching*.
@@ -70,14 +72,15 @@ Seed probe set of five attested proverbs (expanded set with dialect metadata in 
 ## Versioning
 
 - **v0.1 (July 2026):** protocol + seed probes + rubric.
-- **v0.1.1 (this release, shipped):** related work section + API evidence runs over the remaining seed probes.
+- **v0.1.1 (shipped):** related work section + API evidence runs over the remaining seed probes.
+- **v0.1.2 (this release, shipped):** related-work precision pass (Multicultural Riddles characterization corrected against the collaborator proposal; community count softened pending verified figure).
 - **v0.2:** expanded probe set (25+), dialect metadata.
 - **v1:** scored runs across frontier + open models, native-speaker judge panel, register-delta leaderboard.
 - Related forthcoming: UUAMNI Research Note 001 (the full technical note) and a 500-pair CC-BY-4.0 public sample of the Igbo preference dataset.
 
 ## Related work
 
-IlùBench sits in a fast-growing family of culturally grounded evaluations, and measures a different axis than its neighbors. Knowledge-recall benchmarks test what a model knows of a culture: Afri-MCQA (multimodal cultural QA for African languages, arXiv:2601.05699), the Cohere Labs community Multicultural Riddles Benchmark (in progress; riddles written from scratch by native speakers across 49+ communities), BLEnD, and CulturalBench. Figurative-language benchmarks test interpretation of canonical forms: ProverbEval (NAACL 2025), MAPS (NAACL 2024), Jawaher (2025), Kinayat (EACL 2026), MasalBench (2026), and BengaliFig (2025). Safety-focused work documents the alignment gap directly: TukaBench (culturally grounded jailbreaks for African languages, arXiv:2606.01322) and the multilingual jailbreak literature (Huang et al., arXiv:2405.10936). Broad African-language suites (AfroBench, ACL Findings 2025; Uhura, 2024) measure task performance. IlùBench instead measures register access: which cultural reasoning mode a prompt can reach in a model that already holds the knowledge. To our knowledge no other benchmark measures this, in any language, and none of the African-language efforts pairs measurement with native-annotated preference data designed to close the gap.
+IlùBench sits in a fast-growing family of culturally grounded evaluations, and measures a different axis than its neighbors. Cultural-knowledge benchmarks test what a model knows of a culture, from direct QA to indirect reference resolution: Afri-MCQA (multimodal cultural QA for African languages, arXiv:2601.05699), the Cohere Labs community Multicultural Riddles Benchmark (in progress; original riddles written from scratch by native speakers across dozens of language communities, deliberately indirect so that solving them requires genuine cultural knowledge rather than lookup), BLEnD, and CulturalBench. Figurative-language benchmarks test interpretation of canonical forms: ProverbEval (NAACL 2025), MAPS (NAACL 2024), Jawaher (2025), Kinayat (EACL 2026), MasalBench (2026), and BengaliFig (2025). Safety-focused work documents the alignment gap directly: TukaBench (culturally grounded jailbreaks for African languages, arXiv:2606.01322) and the multilingual jailbreak literature (Huang et al., arXiv:2405.10936). Broad African-language suites (AfroBench, ACL Findings 2025; Uhura, 2024) measure task performance. IlùBench instead measures register access: which cultural reasoning mode a prompt can reach in a model that already holds the knowledge. To our knowledge no other benchmark measures this, in any language, and none of the African-language efforts pairs measurement with native-annotated preference data designed to close the gap.
 
 ## Citation
 
