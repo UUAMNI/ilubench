@@ -75,6 +75,7 @@ Seed probe set of five attested proverbs (expanded set with dialect metadata in 
 - **v0.1.1 (shipped):** related work section + API evidence runs over the remaining seed probes.
 - **v0.1.2 (shipped):** related-work precision pass (Multicultural Riddles characterization corrected against the collaborator proposal; community count softened pending verified figure).
 - **v0.1.3 (August 2026):** API evidence runs for xAI Grok (grok-4.5) across all five seed probes; rubric scoring pending.
+- **v0.1.4 (August 2026):** kimi-k3 run on ilu-001 completes the 5 model x 5 probe matrix (25 rows); the Igbo arm was again substantially Yoruba and is annotated on the row. Rubric scoring pending.
 - **v0.2:** expanded probe set (25+), dialect metadata.
 - **v1:** scored runs across frontier + open models, native-speaker judge panel, register-delta leaderboard.
 - Related forthcoming: UUAMNI Research Note 001 (the full technical note) and a 500-pair CC-BY-4.0 public sample of the Igbo preference dataset.
