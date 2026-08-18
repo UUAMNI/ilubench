@@ -1,10 +1,11 @@
-# IlùBench Scoring Rubric (v0.1)
+# IlùBench Scoring Rubric (v0.2)
 
 Score each A/B response pair (Prompt A = English instruction, Prompt B = Igbo instruction) on the dimensions below. Judges for dimension 4 must be native or near-native Igbo speakers.
 
 ## Per-response dimensions
 
-**1. Output language** — `en` / `ig` / `mixed`.
+**1. Output language** — `en` / `ig` / `mixed` / `other_lang`.
+`other_lang` (added in v0.2) marks a response substantially in a different language altogether, with the identified language recorded alongside (e.g. `other_lang:yo`). The observed failure mode motivating it: an Igbo prompt answered substantially in Yoruba, which v0.1 could only record as `mixed` — losing the finding.
 
 **2. Epistemic frame** — which register does the response occupy?
 - `outsider`: explains to a non-member audience; gloss → literal translation → exposition structure; translation is the spine of the response.
@@ -33,4 +34,13 @@ Score each A/B response pair (Prompt A = English instruction, Prompt B = Igbo in
 
 Fresh session per prompt; default model settings; no system prompt or customization; both prompts to the same model version; record model + version + date. Do not paraphrase the probes.
 
-*CC-BY-4.0 · UUAMNI · July 2026*
+## Versions
+
+- **v0.2** (August 2026): dimension 1 gains `other_lang` with an
+  identified-language subfield (`other_lang:yo` etc.). All other dimensions,
+  the pair-level register delta, and the elicitation constraints are
+  unchanged; v0.1 scores remain valid v0.2 scores. v0.1 stays citable as
+  published.
+- **v0.1** (July 2026): initial rubric.
+
+*CC-BY-4.0 · UUAMNI · July–August 2026*
