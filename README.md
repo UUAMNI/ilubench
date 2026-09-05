@@ -71,7 +71,7 @@ Fluency is not alignment: a model can achieve native-level fluency in a language
 
 ## Limitations (v0.1)
 
-Seed probe set of five attested proverbs (expanded set with dialect metadata in v0.2). `runs_v0.jsonl` holds the July and August 2026 evidence: the three chat-interface runs on the flagship probe (ilu-001), hand-scored on every rubric axis, and the first API runs over the seed set. `runs_v0.1.5.jsonl` holds a full 5 model × 5 probe matrix on current frontier models (September 2026), elicited with the open runner. On the API rows only dimension 1 is machine-scored; rubric axes 2–5 are marked pending until native-speaker judges score them, which ships as v1. The finding was first observed and documented May 2026 in our internal experiment logs; this release establishes the public protocol.
+Seed probe set of five attested proverbs (expanded set with dialect metadata in v0.2). `runs_v0.jsonl` holds the July and August 2026 evidence: the three chat-interface runs on the flagship probe (ilu-001), hand-scored on every rubric axis, and the first API runs over the seed set. `runs_v0.1.5.jsonl` holds a full 5 model × 5 probe matrix on current frontier models (September 2026), elicited with the open runner. On the API rows, dimension 1 is machine-scored and axes 2–3 are machine-preliminary on the live leaderboard (LLM judge, labelled as such); axes 4–5 are marked pending until native-speaker judges score them, which ships as v1. The finding was first observed and documented May 2026 in our internal experiment logs; this release establishes the public protocol.
 
 ## Versioning
 
