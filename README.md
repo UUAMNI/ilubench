@@ -20,7 +20,9 @@ configs:
   - config_name: probes
     data_files: probe_set_v0.jsonl
   - config_name: runs
-    data_files: runs_v0.jsonl
+    data_files:
+      - runs_v0.jsonl
+      - runs_v0.1.5.jsonl
 ---
 
 # IlùBench v0.1 — Cultural Register Switching in Frontier Language Models
@@ -30,7 +32,9 @@ configs:
 **Author:** Chuma B. Chukwu Jr. (UUAMNI)
 **Released:** July 2026 · **License:** CC-BY-4.0 · **Contact:** chuma@uuamni.com · [uuamni.com](https://uuamni.com)
 
-**Run it yourself:** [github.com/UUAMNI/ilubench-runner](https://github.com/UUAMNI/ilubench-runner) — a single-file, dependency-free runner that reproduces this protocol against your own API keys (any provider, including local open-weight models) in under five minutes. Contributions of new model runs welcome.
+**Run it yourself:** [github.com/UUAMNI/ilubench-runner](https://github.com/UUAMNI/ilubench-runner) — a single static binary (`ilubench --provider <p> --model <id>`) that reproduces this protocol against your own API keys (Anthropic, OpenAI, Google, xAI, Moonshot, or any OpenAI-compatible endpoint including local open-weight models) in under five minutes. Contributions of new model runs welcome.
+
+**Live leaderboard:** [uche.uuamni.com/ilubench](https://uche.uuamni.com/ilubench) — every run in this dataset, scored on the current rubric, with provenance per dimension.
 
 ## The finding
 
@@ -67,7 +71,7 @@ Fluency is not alignment: a model can achieve native-level fluency in a language
 
 ## Limitations (v0.1)
 
-Seed probe set of five attested proverbs (expanded set with dialect metadata in v0.2). The July 2026 multi-model evidence (`runs_v0.jsonl`) covers the flagship probe (ilu-001); runs over the remaining seed probes will land as v0.1.x updates. Manual elicitation protocol; scored multi-model runs with native-speaker judges ship as v1. The finding was first observed and documented May 2026 in our internal experiment logs; this release establishes the public protocol.
+Seed probe set of five attested proverbs (expanded set with dialect metadata in v0.2). `runs_v0.jsonl` holds the July and August 2026 evidence: the three chat-interface runs on the flagship probe (ilu-001), hand-scored on every rubric axis, and the first API runs over the seed set. `runs_v0.1.5.jsonl` holds a full 5 model × 5 probe matrix on current frontier models (September 2026), elicited with the open runner. On the API rows only dimension 1 is machine-scored; rubric axes 2–5 are marked pending until native-speaker judges score them, which ships as v1. The finding was first observed and documented May 2026 in our internal experiment logs; this release establishes the public protocol.
 
 ## Versioning
 
@@ -76,6 +80,7 @@ Seed probe set of five attested proverbs (expanded set with dialect metadata in 
 - **v0.1.2 (shipped):** related-work precision pass (Multicultural Riddles characterization corrected against the collaborator proposal; community count softened pending verified figure).
 - **v0.1.3 (August 2026):** API evidence runs for xAI Grok (grok-4.5) across all five seed probes; rubric scoring pending.
 - **v0.1.4 (August 2026):** kimi-k3 run on ilu-001 completes the 5 model x 5 probe matrix (25 rows); the Igbo arm was again substantially Yoruba and is annotated on the row. Rubric scoring pending.
+- **v0.1.5 (September 2026):** `runs_v0.1.5.jsonl`, a fresh 5 model x 5 probe matrix on current frontier models (claude-fable-5-1, gpt-6-astra, gemini-3.1-pro-preview, grok-4.6, kimi-k3), all through provider APIs with the open runner. The `model` field is the id the API reported. Dimension 1 in the file is the runner's v0.1 heuristic (`en` / `ig` / `mixed`); the live leaderboard rescores it under rubric v0.2, where kimi-k3's Igbo arm reads `other_lang:yo` on three of five probes. Rubric axes 2–5 pending native-speaker scoring. Raw responses are archived locally and mirrored into the leaderboard's store, not committed here; the earlier v0.1.x API rows are kept as superseded reference.
 - **v0.2:** expanded probe set (25+), dialect metadata.
 - **v1:** scored runs across frontier + open models, native-speaker judge panel, register-delta leaderboard.
 - Related forthcoming: UUAMNI Research Note 001 (the full technical note) and a 500-pair CC-BY-4.0 public sample of the Igbo preference dataset.
