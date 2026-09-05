@@ -21,8 +21,10 @@ configs:
     data_files: probe_set_v0.jsonl
   - config_name: runs
     data_files:
-      - runs_v0.jsonl
-      - runs_v0.1.5.jsonl
+      - split: v0
+        path: runs_v0.jsonl
+      - split: v0_1_5
+        path: runs_v0.1.5.jsonl
 ---
 
 # IlùBench v0.1 — Cultural Register Switching in Frontier Language Models
