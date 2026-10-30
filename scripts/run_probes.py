@@ -24,6 +24,20 @@ Usage:
     python3 scripts/run_probes.py                       # ilu-002..005, 3 providers
     python3 scripts/run_probes.py --providers anthropic,openai,google,moonshot
     python3 scripts/run_probes.py --probes ilu-002,ilu-003
+    python3 scripts/run_probes.py --samples 5           # within-language consistency
+    python3 scripts/run_probes.py --paraphrases probe_paraphrases_v0.3.jsonl
+
+Repeated samples and paraphrased wordings (rubric v0.3, within-language
+consistency). --samples K asks each wording K times, each a fresh call.
+--paraphrases PATH adds the approved, native-authored wordings in that file;
+a row that is not approved or has an empty prompt is skipped with a line on
+stderr. With either flag, every row gains prompt_variant, sample_index,
+samples and sample_group, run ids gain -<prompt_variant>-s<index>, raw
+archive names gain _s<index>, and paraphrase
+rows are appended to runs_v0_paraphrases.jsonl so they stay out of
+runs_v0.jsonl. With neither flag the output is byte-identical to v0.1.1.
+The same contract is implemented by ilubench-runner (Go) and read by Uche's
+IlùBench scorer; keep field names, file names and skip lines in step.
 """
 
 from __future__ import annotations
@@ -42,6 +56,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 PROBE_SET = REPO / "probe_set_v0.jsonl"
 RUNS = REPO / "runs_v0.jsonl"
+# Paraphrase rows never enter the canonical matrix files (rubric v0.3).
+PARAPHRASE_RUNS = REPO / "runs_v0_paraphrases.jsonl"
 RAW_DIR = REPO / "runs_api_raw"
 KEYS_FILE = Path.home() / "Postman" / "Github" / "api_keys.json"
 
@@ -64,6 +80,11 @@ ENV_KEYS = {
 
 MAX_TOKENS = 2048
 TIMEOUT_S = 120
+
+# The probe_set_v0.jsonl wording; paraphrase variant ids may not use it.
+CANONICAL = "canonical"
+VARIANT_ID = re.compile(r"[a-z][a-z0-9_]*")
+PARAPHRASE_REQUIRED = ("probe_id", "variant", "prompt_en", "prompt_ig", "status")
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +248,105 @@ def factual_notes(text: str, raw_path: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Repeated samples and paraphrased wordings (rubric v0.3)
+# ---------------------------------------------------------------------------
+
+
+def positive_int(text: str) -> int:
+    """argparse type for --samples: ASCII digits only, at least 1."""
+    if not re.fullmatch(r"[0-9]+", text) or int(text) < 1:
+        raise argparse.ArgumentTypeError(
+            f"expected a whole number of 1 or more, got {text!r}"
+        )
+    return int(text)
+
+
+class ParaphraseFileError(ValueError):
+    """The paraphrase file cannot be read as rows (bad JSON, missing field)."""
+
+
+def paraphrase_skip_reason(row: dict, seen: set) -> str | None:
+    """Why a well-formed paraphrase row cannot run, or None if it can."""
+    variant = row["variant"]
+    if variant == CANONICAL:
+        return "variant id canonical is reserved for the probe set wording"
+    if not VARIANT_ID.fullmatch(variant):
+        return "variant id must be lowercase letters, digits or underscores, starting with a letter"
+    if (row["probe_id"], variant) in seen:
+        return "repeats an earlier row for this probe and variant"
+    if row["status"] != "approved":
+        return f"status is {row['status']} (only approved rows run)"
+    empty = [k for k in ("prompt_en", "prompt_ig") if not row[k].strip()]
+    if empty:
+        return " and ".join(empty) + " empty"
+    return None
+
+
+def load_paraphrases(path: str, probe_ids: list[str], warn) -> tuple[dict, int]:
+    """Approved paraphrase wordings for the probes in this run.
+
+    Returns ({probe_id: [(variant, prompt_en, prompt_ig), ...]}, skipped), in
+    file order. Rows for probes outside this run are ignored. A row that
+    cannot run (not approved, an empty prompt, a reserved or malformed variant
+    id, a repeat) is skipped and reported through warn(). Raises
+    FileNotFoundError, OSError or ParaphraseFileError.
+    """
+    try:
+        text = Path(path).read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        raise ParaphraseFileError("not valid UTF-8") from None
+    wordings: dict = {pid: [] for pid in probe_ids}
+    seen: set = set()
+    skipped = 0
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            raise ParaphraseFileError(f"line {lineno}: invalid JSON") from None
+        if not isinstance(row, dict):
+            raise ParaphraseFileError(f"line {lineno}: not a JSON object")
+        for key in PARAPHRASE_REQUIRED:
+            if key not in row:
+                raise ParaphraseFileError(f"line {lineno}: missing '{key}'")
+            if not isinstance(row[key], str):
+                raise ParaphraseFileError(f"line {lineno}: '{key}' must be a string")
+        pid, variant = row["probe_id"], row["variant"]
+        if pid not in wordings:
+            continue
+        reason = paraphrase_skip_reason(row, seen)
+        seen.add((pid, variant))
+        if reason:
+            warn(f"skipped paraphrase {pid} {variant}: {reason}")
+            skipped += 1
+            continue
+        wordings[pid].append((variant, row["prompt_en"], row["prompt_ig"]))
+    return wordings, skipped
+
+
+def sample_names(today: str, prov: str, pid: str, variant: str, index: int) -> tuple[str, str, str]:
+    """(run_id, raw-file prefix, evidence glob) for one sample of one wording.
+
+    The run_id ends in -<prompt_variant>-s<index>, the key Uche's importer
+    stores a sampled row under, so every sample's row is distinct. Archive
+    names end in _s<index>; paraphrase archives also carry the variant id so
+    they never overwrite the canonical ones.
+    """
+    prefix = f"{today}_{prov}_{pid}" + ("" if variant == CANONICAL else f"_{variant}")
+    run_id = f"run-{today}-api-{prov}-{pid}-{variant}-s{index}"
+    evidence = f"runs_api_raw/{prefix}_arm_*_s{index}.json (local archive, not uploaded)"
+    return run_id, prefix, evidence
+
+
+def append_rows(path: Path, rows: list[dict]) -> None:
+    with open(path, "a", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -236,6 +356,12 @@ def main() -> int:
     ap.add_argument("--probes", default=",".join(DEFAULT_PROBES))
     ap.add_argument("--providers", default=",".join(DEFAULT_PROVIDERS))
     ap.add_argument("--dry-run", action="store_true", help="Plan only; no API calls, no writes.")
+    ap.add_argument("--samples", type=positive_int, default=1, metavar="K",
+                    help="Ask each wording K times, each a fresh call (default 1).")
+    ap.add_argument("--paraphrases", default=None, metavar="PATH",
+                    help="Also run the approved wordings in this paraphrase file "
+                         "(e.g. probe_paraphrases_v0.3.jsonl). Their rows go to "
+                         f"{PARAPHRASE_RUNS.name}.")
     args = ap.parse_args()
 
     probe_ids = [p.strip() for p in args.probes.split(",") if p.strip()]
@@ -254,11 +380,45 @@ def main() -> int:
         print(f"ERROR: probes not in {PROBE_SET.name}: {missing}")
         return 1
 
+    # Sampled mode adds the four v0.3 fields; without it, output is unchanged.
+    sampled = args.samples > 1 or bool(args.paraphrases)
+    paraphrases: dict = {}
+    if args.paraphrases:
+        try:
+            paraphrases, skipped = load_paraphrases(
+                args.paraphrases, probe_ids, lambda msg: print(msg, file=sys.stderr)
+            )
+        except FileNotFoundError:
+            print(f"ERROR: paraphrase file not found: {args.paraphrases}")
+            return 1
+        except ParaphraseFileError as e:
+            print(f"ERROR: bad paraphrase file {args.paraphrases}: {e}")
+            return 1
+        except OSError:
+            print(f"ERROR: could not read paraphrase file: {args.paraphrases}")
+            return 1
+        approved = sum(len(v) for v in paraphrases.values())
+        print(f"paraphrases: {approved} approved wording(s) to run, {skipped} row(s) skipped "
+              f"({args.paraphrases})", file=sys.stderr)
+    wordings = {
+        pid: [(CANONICAL, probes[pid]["prompt_en"], probes[pid]["prompt_ig"])] + paraphrases.get(pid, [])
+        for pid in probe_ids
+    }
+
     today = str(date.today())
     plan = [(pid, prov) for pid in probe_ids for prov in providers]
-    print(f"Plan: {len(plan)} probe x provider pairs ({len(plan) * 2} API calls)")
-    for pid, prov in plan:
-        print(f"  {pid} x {prov} (model: {MODEL_IDS[prov] or 'resolved at runtime'})")
+    if sampled:
+        calls = sum(len(wordings[pid]) for pid, _ in plan) * args.samples * 2
+        print(f"Plan: {len(plan)} probe x provider pairs, {args.samples} sample(s) per wording "
+              f"({calls} API calls)")
+        for pid, prov in plan:
+            names = ", ".join(w[0] for w in wordings[pid])
+            print(f"  {pid} x {prov} (model: {MODEL_IDS[prov] or 'resolved at runtime'}; "
+                  f"wordings: {names})")
+    else:
+        print(f"Plan: {len(plan)} probe x provider pairs ({len(plan) * 2} API calls)")
+        for pid, prov in plan:
+            print(f"  {pid} x {prov} (model: {MODEL_IDS[prov] or 'resolved at runtime'})")
 
     if args.dry_run:
         key_status = {p: ("OK" if load_key(p) else "MISSING") for p in providers}
@@ -283,70 +443,99 @@ def main() -> int:
     RAW_DIR.mkdir(exist_ok=True)
     (RAW_DIR / ".gitignore").write_text("*\n")  # belt: never enters any git repo
 
-    new_rows = []
+    new_rows = []  # canonical wording -> RUNS
+    paraphrase_rows = []  # paraphrase wordings -> PARAPHRASE_RUNS
+    failures = 0
+    # sample_group carries the run date in UTC, fixed once for the whole run.
+    run_date_utc = datetime.now(timezone.utc).date().isoformat()
     for pid, prov in plan:
-        probe = probes[pid]
         model = models[prov]
-        arms = {}
-        reported_model = model
-        failed = False
-        for arm_name, prompt_field in (("arm_A", "prompt_en"), ("arm_B", "prompt_ig")):
-            prompt = probe[prompt_field]
-            try:
-                text, reported_model, raw = call_provider(prov, keys[prov], model, prompt)
-            except Exception as e:
-                print(f"  FAIL {pid} x {prov} {arm_name}: {type(e).__name__}: {e}")
-                failed = True
-                break
-            raw_path = RAW_DIR / f"{today}_{prov}_{pid}_{arm_name}.json"
-            raw_path.write_text(
-                json.dumps(
-                    {
-                        "date_utc": datetime.now(timezone.utc).isoformat(),
-                        "provider": prov,
-                        "requested_model": model,
-                        "reported_model": reported_model,
-                        "probe_id": pid,
-                        "arm": arm_name,
-                        "prompt": prompt,
-                        "response_text": text,
-                        "raw_api_response": raw,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
-            arms[arm_name] = {
-                "output_language": detect_output_language(text),
-                "epistemic_frame": "pending_human_score",
-                "anchor_source": "pending_human_score",
-                "notes": factual_notes(text, raw_path),
-            }
-            print(f"  ok {pid} x {prov} {arm_name}: {arms[arm_name]['output_language']}")
-        if failed:
-            continue
+        for variant, prompt_en, prompt_ig in wordings[pid]:
+            for index in range(args.samples):
+                if sampled:
+                    run_id, prefix, evidence = sample_names(today, prov, pid, variant, index)
+                    label = f"{pid} x {prov} {variant} s{index}"
+                    suffix = f"_s{index}"
+                    sample_fields = {
+                        "prompt_variant": variant,
+                        "sample_index": index,
+                        "samples": args.samples,
+                        "sample_group": f"{run_date_utc}_{prov}_{pid}_{variant}",
+                    }
+                else:
+                    run_id = f"run-{today}-api-{prov}-{pid}"
+                    prefix = f"{today}_{prov}_{pid}"
+                    evidence = f"runs_api_raw/{today}_{prov}_{pid}_*.json (local archive, not uploaded)"
+                    label = f"{pid} x {prov}"
+                    suffix = ""
+                    sample_fields = {}
+                arms = {}
+                reported_model = model
+                failed = False
+                for arm_name, prompt in (("arm_A", prompt_en), ("arm_B", prompt_ig)):
+                    try:
+                        text, reported_model, raw = call_provider(prov, keys[prov], model, prompt)
+                    except Exception as e:
+                        print(f"  FAIL {label} {arm_name}: {type(e).__name__}: {e}")
+                        failed = True
+                        break
+                    raw_path = RAW_DIR / f"{prefix}_{arm_name}{suffix}.json"
+                    raw_path.write_text(
+                        json.dumps(
+                            {
+                                "date_utc": datetime.now(timezone.utc).isoformat(),
+                                "provider": prov,
+                                "requested_model": model,
+                                "reported_model": reported_model,
+                                "probe_id": pid,
+                                "arm": arm_name,
+                                **sample_fields,
+                                "prompt": prompt,
+                                "response_text": text,
+                                "raw_api_response": raw,
+                            },
+                            ensure_ascii=False,
+                            indent=2,
+                        ),
+                        encoding="utf-8",
+                    )
+                    arms[arm_name] = {
+                        "output_language": detect_output_language(text),
+                        "epistemic_frame": "pending_human_score",
+                        "anchor_source": "pending_human_score",
+                        "notes": factual_notes(text, raw_path),
+                    }
+                    print(f"  ok {label} {arm_name}: {arms[arm_name]['output_language']}")
+                if failed:
+                    failures += 1
+                    continue
 
-        new_rows.append(
-            {
-                "run_id": f"run-{today}-api-{prov}-{pid}",
-                "date": today,
-                "model": reported_model,
-                "interface": "API",
-                "probe_id": pid,
-                "arm_A": arms["arm_A"],
-                "arm_B": arms["arm_B"],
-                "register_delta": "pending_human_score",
-                "reading": "pending_human_score",
-                "cultural_correctness": "pending_native_review",
-                "evidence": f"runs_api_raw/{today}_{prov}_{pid}_*.json (local archive, not uploaded)",
-            }
-        )
+                row = {
+                    "run_id": run_id,
+                    "date": today,
+                    "model": reported_model,
+                    "interface": "API",
+                    "probe_id": pid,
+                    **sample_fields,
+                    "arm_A": arms["arm_A"],
+                    "arm_B": arms["arm_B"],
+                    "register_delta": "pending_human_score",
+                    "reading": "pending_human_score",
+                    "cultural_correctness": "pending_native_review",
+                    "evidence": evidence,
+                }
+                (new_rows if variant == CANONICAL else paraphrase_rows).append(row)
 
     if new_rows:
-        with open(RUNS, "a", encoding="utf-8") as f:
-            for row in new_rows:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        append_rows(RUNS, new_rows)
+    if paraphrase_rows:
+        append_rows(PARAPHRASE_RUNS, paraphrase_rows)
+    if sampled:
+        summary = f"\nAppended {len(new_rows)} rows to {RUNS.name}"
+        if args.paraphrases:
+            summary += f" and {len(paraphrase_rows)} rows to {PARAPHRASE_RUNS.name}"
+        print(f"{summary} ({failures} sample(s) failed).")
+        return 0 if failures == 0 else 2
     print(f"\nAppended {len(new_rows)} rows to {RUNS.name} "
           f"({len(plan) - len(new_rows)} pair(s) failed).")
     return 0 if len(new_rows) == len(plan) else 2
